@@ -1,12 +1,30 @@
-# In code1.py
-variable_to_extract = "vlue"
+import tkinter as tk
+from PIL import Image
 
-# In code2.py
-def check_variable(variable):
-    if variable == "value":
-        print("Variable is valid")
-    else:
-        print("Variable is invalid")
+root = tk.Tk()
+root.title("Displaying GIF")
 
-# Call the function with the variable from code1.py
-check_variable(variable_to_extract)
+file = "giphy.gif"
+info = Image.open(file)
+
+frames = info.n_frames  # number of frames
+
+photoimage_objects = []
+for i in range(frames):
+    obj = tk.PhotoImage(file=file, format=f"gif -index {i}")
+    photoimage_objects.append(obj)
+
+def animation(current_frame=0):
+    global loop
+    image = photoimage_objects[current_frame]
+    gif_label.configure(image=image)
+
+    current_frame = (current_frame + 1) % frames  # Use modulo to loop through frames
+    loop = root.after(50, lambda: animation(current_frame))  # Pass current_frame to the function
+
+gif_label = tk.Label(root, image="")
+gif_label.pack()
+
+animation()  # Start the animation
+
+root.mainloop()

@@ -5,12 +5,17 @@ import pandas_datareader as web# type: ignore
 import datetime as dt
 import ccxt# type: ignore
 import tkinter as tk
- 
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg #type: ignore
 from sklearn.preprocessing import MinMaxScaler# type: ignore
 from keras.models import Sequential# type: ignore
 from keras.layers import Dense, Dropout, LSTM# type: ignore
+
+import tkinter
 from tkinter import *
+from tkinter import messagebox
+import customtkinter
+from PIL import ImageTk, Image, ImageDraw
  
 class DataLoader:
     def __init__(self, symbol, timeframe):
@@ -56,8 +61,8 @@ class LSTMModel: #этот класс отвеает за создание , о�
         model.fit(x_train, y_train, epochs=25, batch_size=32)
  
     def make_predictions(self, model, x_test):#метод делающий прогноз с использованием обученной модели 
-        predicted_price = model.predict(x_test)
-        return predicted_price
+        self.predicted_price = model.predict(x_test)
+        return self.predicted_price
  
 class Predictor:#этот класс отвечает за построение прогнозов
     def __init__(self, data_loader, lstm_model):
@@ -69,30 +74,46 @@ class Predictor:#этот класс отвечает за построение 
         prediction = model.predict(real_data)
         return prediction
     
-#бля я так заебался писать ебаный курсач , распилите меня нахуй болгаркой уже
-class Window:
+#########################################################
+class Window:#окно работы 
+
+    customtkinter.set_appearance_mode("System")# can set light or dark
+    customtkinter.set_default_color_theme("green")#themes: blue,dark-blue or green
+
     def __init__(self, width, height, title="Window", resizable=(False, False), icon=None):
-        self.root = tk.Tk()
-        self.root.title(title)
-        self.root.geometry(f'{width}x{height}+200+200')
+        self.root=customtkinter.CTk()
+        self.root.geometry("600x450")
+        self.root.title('Main')
+
+        self.root.wm_attributes('-transparentcolor',self.root['bg'])
+        self.frame=customtkinter.CTkFrame(self.root, width=320,height=360,corner_radius=50)#window with borders
+        self.frame.pack(pady=10)
+        self.frame.place(relx=0.5,rely=0.5, anchor=tkinter.CENTER)
+        
         if icon:
             self.root.iconbitmap(icon)
- 
+
     def guessToken(self):
-        self.tokenName = tk.Entry(self.root, font=('Microsoft YaHei UI Light', 23, 'bold'))
-        self.tokenName.place(relx=0.5, y=80, anchor=tk.CENTER)
-        self.btn = tk.Button(self.root, text='Спрогнозировать', font=('Microsoft YaHei UI Light', 23, 'bold'), width=20, command=self.GetAndCheckToken)
-        self.btn.place(relx=0.5, y=180, anchor=tk.CENTER)
- 
+        self.tokenName=customtkinter.CTkEntry(self.frame,width=220,placeholder_text="Ваша Пара:(BTC/USDT)")
+        self.tokenName.place(relx=0.5, y=140, anchor=tk.CENTER)
+
+        self.Timeframe=customtkinter.CTkEntry(self.frame,width=220,placeholder_text="Желаемый прогноз времени")
+        self.Timeframe.place(relx=0.5, y=170, anchor=tk.CENTER)
+        
+        self.btn=customtkinter.CTkButton(self.frame,width=220,text="Спрогнозировать",corner_radius=6,text_color='White',command=self.GetAndCheckToken)
+        self.btn.place(relx=0.5, y=200, anchor=tk.CENTER)
+
     def GetAndCheckToken(self):
         token = self.tokenName.get().upper()
+        timeframe = self.Timeframe.get().lower()
         binance = ccxt.binance()
         markets = binance.load_markets()
         symbols = binance.symbols
+
         if token in symbols:
             self.predictionLable = tk.Label(self.root, text='', font=('Microsoft YaHei UI Light', 23, 'bold'))
-            self.predictionLable.place(relx=0.5, y=140, anchor=tk.CENTER)
-            data_loader = DataLoader(f"{token}", '5m')
+            self.predictionLable.place(relx=0.5, y=220, anchor=tk.CENTER)
+            data_loader = DataLoader(f"{token}", f"{timeframe}")
             df = data_loader.load_data()
  
             #преобразуем данные 
@@ -116,7 +137,7 @@ class Window:
             lstm_model.train_model(model, x_train, y_train)
  
             #Создаем прогозы
-            actual_prices = df['close'].values
+            self.actual_prices = df['close'].values
             total_dataset = pd.concat((df['close'], df['close'].head(500)),axis=0)
  
             model_inputs = total_dataset[len(total_dataset)-len(df['close'].head(500))-lstm_model.prediction_days:].values
@@ -132,8 +153,8 @@ class Window:
             x_test= np.array(x_test)
             x_test = np.reshape(x_test,(x_test.shape[0], x_test.shape[1],1))
  
-            predicted_price = lstm_model.make_predictions(model, x_test)
-            predicted_price = scaler.inverse_transform(predicted_price)
+            self.predicted_price = lstm_model.make_predictions(model, x_test)
+            self.predicted_price = scaler.inverse_transform(self.predicted_price)
  
             #Выводим прогнозируеимую цену
             real_data = [model_inputs[len(model_inputs)+1- lstm_model.prediction_days:len(model_inputs)+1, 0]]
@@ -143,12 +164,12 @@ class Window:
             prediction = lstm_model.make_predictions(model, real_data)
             prediction = scaler.inverse_transform(prediction)
             self.predictionLable['text'] = prediction[0][0]
-            #Прогнозируем цену
+            ########
             self.fig , self.ax = plt.subplots()
-            canvas = FigureCanvasTkAgg(self.fig, master =self.root)
-            self.ax.plot(actual_prices)
-            self.ax.plot(predicted_price)
-            canvas.get_tk_widget().place(relx=0.5, y=500,anchor=CENTER)
+            self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
+            self.ax.plot(self.actual_prices)
+            self.ax.plot(self.predicted_price)
+            self.canvas.get_tk_widget().place(relx=0.5,rely=0.5,anchor=CENTER)
             
             return True
         else:
@@ -158,6 +179,6 @@ class Window:
         self.root.mainloop()
  
 if __name__ == "__main__":
-    window = Window(1280, 960, "Жесточайшее приложение")
+    window = Window(1280, 960, "Йэпол")
     window.guessToken()
     window.run()
